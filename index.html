@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>虚拟抛硬币实验 · 概率教学工具</title>
+<link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js" integrity="sha384-pPi0zxBAoDu6+JXW/C68UZLvBUUtU+7zonhif43rqj7pxsGyqyqzcian2Rj37Rss" crossorigin="anonymous"></script>
+<style>
+  /* ===== 设计 token ===== */
+  :root {
+    --bg: #F6F2E8;
+    --grid-line: rgba(31, 36, 48, 0.045);
+    --card: #FFFFFF;
+    --card-border: #E6DFCE;
+    --ink: #1F2430;
+    --ink-soft: #4A5260;
+    --ink-faint: #8A8F99;
+    --heads: #E3A82C;   /* 硬币正面 · 金色 */
+    --heads-deep: #C88F1D;
+    --tails: #5C7CA6;   /* 硬币反面 · 银蓝 */
+    --tails-deep: #46658F;
+    --primary: #26334D; /* 主按钮 · 墨蓝 */
+    --primary-hover: #33446B;
+    --radius: 16px;
+    --font: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font);
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 28px 28px;
+    min-height: 100vh;
+    line-height: 1.5;
+  }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 32px 24px 48px;
+  }
+
+  /* ===== 头部 ===== */
+  .page-head { margin-bottom: 28px; }
+  .kicker {
+    display: inline-block;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--tails-deep);
+    background: rgba(92, 124, 166, 0.10);
+    border: 1px solid rgba(92, 124, 166, 0.28);
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 14px;
+  }
+  .page-head h1 {
+    margin: 0 0 8px;
+    font-size: clamp(26px, 4vw, 36px);
+    font-weight: 900;
+    letter-spacing: 1px;
+  }
+  .page-head .sub {
+    margin: 0;
+    font-size: 15px;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .page-head .sub strong { color: var(--heads-deep); font-weight: 900; }
+
+  /* ===== 主栅格 ===== */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 400px 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 22px;
+  }
+  .card-title {
+    margin: 0 0 16px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--heads);
+    flex: none;
+  }
+
+  /* ===== 左栏：实验台 ===== */
+  .lab { text-align: center; }
+
+  .coin-scene {
+    perspective: 900px;
+    width: 160px;
+    height: 160px;
+    margin: 6px auto 4px;
+  }
+  .coin-wrap { width: 100%; height: 100%; }
+  .coin-wrap.tossing { animation: tossJump 0.72s ease-out; }
+  .coin {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.72s cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: transform;
+  }
+  .face {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 6px rgba(255, 255, 255, 0.18), inset 0 0 0 8px rgba(0, 0, 0, 0.05);
+  }
+  .face.head { background: var(--heads); color: #FFFFFF; }
+  .face.tail { background: var(--tails); color: #FFFFFF; transform: rotateY(180deg); }
+  .face .ring {
+    width: 72%; height: 72%;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .face .ring span {
+    font-size: 56px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  @keyframes tossJump {
+    0%   { transform: translateY(0); }
+    30%  { transform: translateY(-52px); }
+    100% { transform: translateY(0); }
+  }
+
+  .result-badge {
+    display: inline-block;
+    min-width: 120px;
+    margin: 10px auto 4px;
+    padding: 6px 18px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: transparent;
+  }
+  .result-badge.idle { color: var(--ink-faint); font-weight: 700; background: transparent; border: 1px dashed var(--card-border); }
+  .result-badge.heads { background: var(--heads); color: #FFFFFF; }
+  .result-badge.tails { background: var(--tails); color: #FFFFFF; }
+
+  .btn {
+    font-family: var(--font);
+    border: none;
+    cursor: pointer;
+    border-radius: 12px;
+    font-weight: 700;
+    transition: background 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:focus-visible { outline: 3px solid rgba(227, 168, 44, 0.5); outline-offset: 2px; }
+
+  .btn-primary {
+    width: 100%;
+    margin-top: 14px;
+    padding: 15px 20px;
+    font-size: 18px;
+    letter-spacing: 6px;
+    background: var(--primary);
+    color: #FFFFFF;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+
+  .batch-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .btn-batch {
+    padding: 12px 4px;
+    font-size: 14px;
+    font-weight: 700;
+    background: #F2EDE0;
+    border: 1px solid var(--card-border);
+    color: var(--ink);
+  }
+  .btn-batch:hover:not(:disabled) { background: #E9E2CF; border-color: #D3C8AC; }
+  .btn-batch[data-n="10"]:hover:not(:disabled) { background: rgba(227,168,44,.14); }
+  .btn-batch[data-n="100"]:hover:not(:disabled) { background: rgba(227,168,44,.14); }
+  .btn-batch[data-n="1000"]:hover:not(:disabled) { background: rgba(92,124,166,.12); }
+  .btn-batch[data-n="10000"]:hover:not(:disabled) { background: rgba(92,124,166,.12); }
+
+  .ctrl-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .btn-ghost {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 14px;
+    background: transparent;
+    border: 1px solid var(--card-border);
+    color: var(--ink-soft);
+  }
+  .btn-ghost:hover:not(:disabled) { background: #F2EDE0; }
+  .btn-stop {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 14px;
+    background: var(--tails-deep);
+    color: #fff;
+  }
+  .btn-stop:hover { background: #3B5880; }
+
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .status-line {
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    min-height: 22px;
+  }
+  .status-line .progress-num { font-weight: 900; color: var(--primary); font-variant-numeric: tabular-nums; }
+
+  .progress-track {
+    margin-top: 8px;
+    height: 6px;
+    border-radius: 999px;
+    background: #EFE9DB;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    border-radius: 999px;
+    background: var(--primary);
+    transition: width 0.12s linear;
+  }
+
+  /* ===== 右栏：统计 ===== */
+  .right-col { display: flex; flex-direction: column; gap: 20px; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .stat-cell {
+    background: #FBF8F1;
+    border: 1px solid var(--card-border);
+    border-radius: 12px;
+    padding: 14px 10px;
+    text-align: center;
+  }
+  .stat-cell .num {
+    font-size: clamp(26px, 3.4vw, 34px);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+  .stat-cell .num.heads { color: var(--heads-deep); }
+  .stat-cell .num.tails { color: var(--tails-deep); }
+  .stat-cell .lbl {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--ink-faint);
+    font-weight: 500;
+  }
+
+  .chart-box { height: 300px; width: 100%; }
+
+  /* ===== 占比卡 ===== */
+  .ratio-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .ratio-pct {
+    font-size: 30px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    color: var(--heads-deep);
+  }
+  .ratio-pct small { font-size: 14px; font-weight: 700; color: var(--ink-faint); }
+  .ratio-note {
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .ratio-track {
+    position: relative;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--tails);
+    overflow: hidden;
+  }
+  .ratio-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0%;
+    background: var(--heads);
+    transition: width 0.12s linear;
+  }
+  .ratio-mark {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    width: 3px;
+    background: rgba(255, 255, 255, 0.92);
+    z-index: 2;
+  }
+  .ratio-mark::after {
+    content: "50%";
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-weight: 900;
+    color: var(--ink);
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    padding: 0 4px;
+    border-radius: 4px;
+  }
+  .ratio-scale {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ===== 学习要点 ===== */
+  .learn-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .learn-item { padding: 18px 18px 16px; }
+  .learn-item .l-num {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px;
+    font-weight: 900;
+    color: var(--tails-deep);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .learn-item .l-num .badge {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: rgba(92, 124, 166, 0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; color: var(--tails-deep);
+  }
+  .learn-item p { margin: 0; font-size: 14px; color: var(--ink-soft); }
+  .learn-item p strong { color: var(--ink); }
+
+  .foot-note {
+    margin-top: 22px;
+    font-size: 12.5px;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+
+  /* ===== 响应式 ===== */
+  @media (max-width: 768px) {
+    .wrap { padding: 22px 16px 40px; }
+    .main-grid { grid-template-columns: 1fr; }
+    .learn-grid { grid-template-columns: 1fr; }
+    .stat-grid { grid-template-columns: repeat(3, 1fr); }
+    .coin-scene { width: 138px; height: 138px; }
+  }
+  @media (max-width: 420px) {
+    .batch-row { grid-template-columns: repeat(2, 1fr); }
+    .stat-grid { gap: 8px; }
+    .stat-cell .num { font-size: 24px; }
+    .ratio-pct { font-size: 26px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .coin { transition: none; }
+    .coin-wrap.tossing { animation: none; }
+    .progress-bar, .ratio-fill { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== 头部 ===== -->
+  <header class="page-head">
+    <span class="kicker">小学数学 · 可能性 · 实验工具</span>
+    <h1>虚拟抛硬币实验</h1>
+    <p class="sub">单次抛掷<strong>无法预判</strong> · 大量试验正面占比逐步<strong>趋近 50%</strong></p>
+  </header>
+
+  <main class="main-grid">
+
+    <!-- ===== 左栏：实验台 ===== -->
+    <section class="card lab">
+      <div class="coin-scene">
+        <div class="coin-wrap" id="coinWrap">
+          <div class="coin" id="coin">
+            <div class="face head"><div class="ring"><span>正</span></div></div>
+            <div class="face tail"><div class="ring"><span>反</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="result-badge idle" id="resultBadge">点击下方按钮开始</div>
+
+      <button class="btn btn-primary" id="btnOnce" type="button">抛一次</button>
+
+      <p class="card-title" style="margin:20px 0 6px;font-size:13px;"><span class="dot" style="background:var(--tails);"></span>一键批量试验（自动连续抛掷）</p>
+      <div class="batch-row">
+        <button class="btn btn-batch" data-n="10" type="button">10 次</button>
+        <button class="btn btn-batch" data-n="100" type="button">100 次</button>
+        <button class="btn btn-batch" data-n="1000" type="button">1,000 次</button>
+        <button class="btn btn-batch" data-n="10000" type="button">10,000 次</button>
+      </div>
+
+      <div class="ctrl-row">
+        <button class="btn btn-ghost" id="btnReset" type="button">重置清空</button>
+        <button class="btn btn-stop" id="btnStop" type="button" style="display:none;">停止</button>
+      </div>
+
+      <div class="status-line" id="statusLine">共抛 0 次，开始你的第一次实验吧</div>
+      <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+    </section>
+
+    <!-- ===== 右栏：统计 ===== -->
+    <div class="right-col">
+
+      <section class="card">
+        <h2 class="card-title"><span class="dot"></span>实时统计</h2>
+        <div class="stat-grid">
+          <div class="stat-cell">
+            <div class="num" id="statTotal">0</div>
+            <div class="lbl">总次数</div>
+          </div>
+          <div class="stat-cell">
+            <div class="num heads" id="statHeads">0</div>
+            <div class="lbl">正面 · 次数</div>
+          </div>
+          <div class="stat-cell">
+            <div class="num tails" id="statTails">0</div>
+            <div class="lbl">反面 · 次数</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title"><span class="dot" style="background:var(--tails);"></span>动态条形统计图</h2>
+        <div class="chart-box" id="chart"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-title"><span class="dot" style="background:var(--primary);"></span>正面占比 · 逐步趋近 50%</h2>
+        <div class="ratio-head">
+          <div class="ratio-pct" id="ratioPct">0%</div>
+          <div class="ratio-note" id="ratioNote">还没有数据，先抛一次试试</div>
+        </div>
+        <div class="ratio-track">
+          <div class="ratio-mark"></div>
+          <div class="ratio-fill" id="ratioFill"></div>
+        </div>
+        <div class="ratio-scale">
+          <span>0%</span><span>正面 →</span><span>100%</span>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- ===== 学习要点 ===== -->
+  <section class="learn-grid" style="margin-top:20px;">
+    <div class="card learn-item">
+      <div class="l-num"><span class="badge">1</span>单次结果无法预判</div>
+      <p>每次抛掷，正面和反面出现的机会<strong>各占一半</strong>，但单独一次到底出哪面，<strong>谁也说不准</strong>。</p>
+    </div>
+    <div class="card learn-item">
+      <div class="l-num"><span class="badge">2</span>次数越多越接近 50%</div>
+      <p>抛的次数越多，正面出现的占比就会<strong>越来越接近 50%</strong>，试试 10 次、100 次、10,000 次对比看。</p>
+    </div>
+    <div class="card learn-item">
+      <div class="l-num"><span class="badge">3</span>“接近”不等于“相等”</div>
+      <p>占比会上下波动，但次数越多，波动幅度越<strong>小</strong>——这就是大量重复实验的价值。</p>
+    </div>
+  </section>
+
+  <p class="foot-note">每次批量试验会自动从 0 开始重新统计；单次抛掷会累加到当前统计中。</p>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ===== 状态 =====
+  var state = {
+    heads: 0,
+    tails: 0,
+    total: 0,
+    flipping: false,   // 单次动画中
+    running: false,    // 批量运行中
+    target: 0,         // 批量目标次数
+    tossed: 0,         // 批量已抛次数
+    timer: null,
+    coinAngle: 0
+  };
+
+  // ===== DOM =====
+  var el = function (id) { return document.getElementById(id); };
+  var coinWrap = el('coinWrap');
+  var coin = el('coin');
+  var resultBadge = el('resultBadge');
+  var btnOnce = el('btnOnce');
+  var btnReset = el('btnReset');
+  var btnStop = el('btnStop');
+  var statusLine = el('statusLine');
+  var progressBar = el('progressBar');
+  var statTotal = el('statTotal'), statHeads = el('statHeads'), statTails = el('statTails');
+  var ratioPct = el('ratioPct'), ratioNote = el('ratioNote'), ratioFill = el('ratioFill');
+  var batchBtns = Array.prototype.slice.call(document.querySelectorAll('.btn-batch'));
+
+  // ===== 图表 =====
+  var chart = echarts.init(el('chart'));
+  chart.setOption({
+    grid: { left: 20, right: 28, top: 44, bottom: 36, containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: ['正面', '反面'],
+      boundaryGap: true,
+      axisLine: { lineStyle: { color: '#C9C0A8' } },
+      axisTick: { show: false },
+      axisLabel: { fontSize: 14, color: '#3A4250', fontWeight: 700 }
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      splitLine: { lineStyle: { color: '#EFE9DB' } },
+      axisLabel: { fontSize: 12, color: '#8A8F99' }
+    },
+    series: [{
+      type: 'bar',
+      barWidth: '36%',
+      label: {
+        show: true,
+        position: 'top',
+        fontSize: 15,
+        fontWeight: 700,
+        formatter: function (p) { return p.value.toLocaleString('zh-CN'); }
+      },
+      itemStyle: { borderRadius: [8, 8, 0, 0] },
+      data: [
+        { value: 0, itemStyle: { color: '#E3A82C' } },
+        { value: 0, itemStyle: { color: '#5C7CA6' } }
+      ]
+    }],
+    tooltip: {
+      trigger: 'axis',
+      confine: true,
+      backgroundColor: '#FFFFFF',
+      borderColor: '#E6DFCE',
+      textStyle: { color: '#1F2430', fontSize: 13 }
+    }
+  });
+  new ResizeObserver(function () { chart.resize(); }).observe(el('chart'));
+
+  function fmt(n) { return n.toLocaleString('zh-CN'); }
+
+  // ===== 渲染 =====
+  function updateAll() {
+    statTotal.textContent = fmt(state.total);
+    statHeads.textContent = fmt(state.heads);
+    statTails.textContent = fmt(state.tails);
+
+    chart.setOption({
+      series: [{
+        data: [
+          { value: state.heads, itemStyle: { color: '#E3A82C' } },
+          { value: state.tails, itemStyle: { color: '#5C7CA6' } }
+        ]
+      }]
+    });
+
+    var pct = state.total === 0 ? 0 : (state.heads / state.total) * 100;
+    ratioPct.textContent = pct.toFixed(1) + '%';
+    ratioFill.style.width = pct + '%';
+
+    if (state.total === 0) {
+      ratioNote.textContent = '还没有数据，先抛一次试试';
+    } else {
+      var diff = Math.abs(pct - 50);
+      if (diff < 0.5) {
+        ratioNote.textContent = '已非常接近 50%！';
+      } else {
+        ratioNote.textContent = '与 50% 相差 ' + diff.toFixed(1) + '% · 次数越多越接近';
+      }
+    }
+  }
+
+  // ===== 单次抛掷 =====
+  function tossOne() {
+    if (state.flipping || state.running) return;
+    state.flipping = true;
+    btnOnce.disabled = true;
+    batchBtns.forEach(function (b) { b.disabled = true; });
+    btnReset.disabled = true;
+
+    var result = Math.random() < 0.5 ? 'H' : 'T';
+    var extra = result === 'T' ? 180 : 0;
+    var target = state.coinAngle + 720 + extra; // 至少转两整圈
+    state.coinAngle = target;
+    coin.style.transform = 'rotateY(' + target + 'deg)';
+    coinWrap.classList.add('tossing');
+    resultBadge.className = 'result-badge idle';
+    resultBadge.textContent = '抛掷中…';
+
+    window.setTimeout(function () {
+      coinWrap.classList.remove('tossing');
+      state.flipping = false;
+      if (result === 'H') state.heads++; else state.tails++;
+      state.total++;
+      updateAll();
+
+      resultBadge.className = 'result-badge ' + (result === 'H' ? 'heads' : 'tails');
+      resultBadge.textContent = result === 'H' ? '正面 +1' : '反面 +1';
+      statusLine.textContent = '共抛 ' + fmt(state.total) + ' 次 · 刚才这 1 次的结果，抛之前无法预判';
+
+      btnOnce.disabled = false;
+      batchBtns.forEach(function (b) { b.disabled = false; });
+      btnReset.disabled = false;
+    }, 720);
+  }
+
+  // ===== 批量抛掷 =====
+  function runBatch(n) {
+    if (state.running) return;
+    clearStats(false);
+
+    state.running = true;
+    state.target = n;
+    state.tossed = 0;
+    setRunningUI(true);
+
+    var frames = n <= 10 ? 12 : (n <= 100 ? 24 : 100);
+    var chunk = Math.ceil(n / frames);
+    var frameMs = n <= 10 ? 100 : 40;
+    var frame = 0;
+
+    state.timer = window.setInterval(function () {
+      frame++;
+      var c = Math.min(chunk, state.target - state.tossed);
+      for (var i = 0; i < c; i++) {
+        if (Math.random() < 0.5) state.heads++; else state.tails++;
+      }
+      state.tossed += c;
+      state.total = state.tossed;
+      updateAll();
+
+      var prog = (state.tossed / state.target) * 100;
+      progressBar.style.width = prog + '%';
+      statusLine.textContent = '正在抛掷… ' + fmt(state.tossed) + ' / ' + fmt(state.target);
+
+      if (state.tossed >= state.target) {
+        finishBatch();
+      }
+    }, frameMs);
+  }
+
+  function finishBatch() {
+    window.clearInterval(state.timer);
+    state.timer = null;
+    state.running = false;
+    progressBar.style.width = '100%';
+    var pct = (state.heads / state.total) * 100;
+    statusLine.textContent = '完成！共抛 ' + fmt(state.total) + ' 次 · 正面占比 ' + pct.toFixed(1) + '%';
+    resultBadge.className = 'result-badge idle';
+    resultBadge.textContent = '实验完成';
+    setRunningUI(false);
+  }
+
+  function stopBatch() {
+    if (!state.running) return;
+    window.clearInterval(state.timer);
+    state.timer = null;
+    state.running = false;
+    var pct = state.total === 0 ? 0 : (state.heads / state.total) * 100;
+    statusLine.textContent = '已停止 · 当前共抛 ' + fmt(state.total) + ' 次 · 正面占比 ' + pct.toFixed(1) + '%';
+    resultBadge.className = 'result-badge idle';
+    resultBadge.textContent = '已停止';
+    setRunningUI(false);
+  }
+
+  function clearStats(silent) {
+    state.heads = 0;
+    state.tails = 0;
+    state.total = 0;
+    updateAll();
+    progressBar.style.width = '0%';
+    resultBadge.className = 'result-badge idle';
+    resultBadge.textContent = '点击下方按钮开始';
+    if (!silent) statusLine.textContent = '已重置 · 统计从 0 开始';
+  }
+
+  function setRunningUI(running) {
+    btnOnce.disabled = running;
+    batchBtns.forEach(function (b) { b.disabled = running; });
+    btnReset.disabled = running;
+    btnStop.style.display = running ? 'block' : 'none';
+    btnStop.style.flex = '1';
+    btnReset.style.flex = running ? '1' : '1';
+  }
+
+  // ===== 事件绑定 =====
+  btnOnce.addEventListener('click', tossOne);
+  btnReset.addEventListener('click', function () { if (!state.running) clearStats(false); });
+  btnStop.addEventListener('click', stopBatch);
+  batchBtns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      runBatch(parseInt(b.getAttribute('data-n'), 10));
+    });
+  });
+})();
+</script>
+</body>
+</html>
